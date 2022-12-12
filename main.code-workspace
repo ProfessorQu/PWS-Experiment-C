@@ -1,0 +1,33 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../PWS-gidsexperiment"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"raylib.h": "c",
+			"math.h": "c",
+			"blocks.h": "c",
+			"stdio.h": "c",
+			"*.m": "c",
+			"array": "c",
+			"compare": "c",
+			"functional": "c",
+			"tuple": "c",
+			"type_traits": "c",
+			"utility": "c",
+			"*.tcc": "c",
+			"string": "c",
+			"unordered_map": "c",
+			"memory": "c",
+			"string_view": "c",
+			"ostream": "c",
+			"streambuf": "c",
+			"iterator": "c"
+		}
+	}
+}
