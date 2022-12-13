@@ -8,7 +8,7 @@
 //----------------------------------------------------------------------------------
 typedef enum {
     Empty, Water, Sand, Product
-} CellType;
+} Element;
 
 #define screenWidth 800
 #define screenHeight 800
@@ -21,14 +21,16 @@ typedef enum {
 //----------------------------------------------------------------------------------
 // Local Functions Declaration
 //----------------------------------------------------------------------------------
-static void Update(void);
-static void Draw(void);
+static void Update();
+static void Draw();
 
-void UpdateGridLeft();
-void UpdateGridRight();
+static void Inputs();
+
+static void UpdateGridLeft();
+static void UpdateGridRight();
 
 bool Fall(int x, int y);
-bool FallIn(int x, int y, CellType type);
+bool FallIn(int x, int y, Element type);
 
 void UpdateEmpty(int x, int y);
 
@@ -36,11 +38,11 @@ void UpdateWater(int x, int y);
 bool WaterSpread(int x, int y);
 
 void UpdateSand(int x, int y);
-bool React(int x, int y, CellType with, CellType to);
+bool React(int x, int y, Element with, Element to);
 
 void UpdateProduct(int x, int y);
 
-void SpawnCells(int size, CellType type);
+void SetElement(int size, Element type);
 
 //----------------------------------------------------------------------------------
 // Local Variables Definition (local to this module)
@@ -51,14 +53,14 @@ const int waterSpreadRate = 5;
 
 bool left = false;
 
-CellType grid[gridWidth][gridHeight];
+Element grid[gridWidth][gridHeight];
 
 bool InBounds(int x, int y)
 {
     return 0 <= x && x < gridWidth && 0 <= y && y < gridHeight;
 }
 
-bool swap(CellType *a, CellType *b)
+bool swap(Element *a, Element *b)
 {
     int temp = *a;
     *a = *b;
@@ -100,21 +102,7 @@ int main()
 //----------------------------------------------------------------------------------
 void Update()
 {
-    // Spawning Cells
-    //---------------------------------------------------------
-    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-        SpawnCells(10, Water);
-    else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
-        SpawnCells(5, Sand);
-    else if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
-        SpawnCells(10, Empty);
-    
-    // Reset Grid
-    //---------------------------------------------------------
-    if (IsKeyPressed(KEY_R))
-        for (int x = 0; x < gridWidth; x++)
-            for (int y = 0; y < gridHeight; y++)
-                grid[x][y] = Empty;
+    Inputs();
         
     // Update Grid
     //---------------------------------------------------------
@@ -124,6 +112,28 @@ void Update()
         UpdateGridRight();
     
     left = !left;
+}
+
+//----------------------------------------------------------------------------------
+// Handle mouse inputs
+//----------------------------------------------------------------------------------
+void Inputs()
+{
+    // Spawning Cells
+    //---------------------------------------------------------
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        SetElement(10, Water);
+    else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
+        SetElement(5, Sand);
+    else if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
+        SetElement(10, Empty);
+    
+    // Reset Grid
+    //---------------------------------------------------------
+    if (IsKeyPressed(KEY_R))
+        for (int x = 0; x < gridWidth; x++)
+            for (int y = 0; y < gridHeight; y++)
+                grid[x][y] = Empty;
 }
 
 //----------------------------------------------------------------------------------
@@ -164,7 +174,10 @@ void UpdateGridRight()
     }
 }
 
-void SpawnCells(int size, CellType type)
+//----------------------------------------------------------------------------------
+// Spawn cells
+//----------------------------------------------------------------------------------
+void SetElement(int size, Element type)
 {
     // Get the mouse position
     int mouseX = GetMouseX() / cellSize;
@@ -213,7 +226,7 @@ void UpdateProduct(int x, int y)
             FallIn(x, y, Sand);
 }
 
-bool React(int x, int y, CellType with, CellType to)
+bool React(int x, int y, Element with, Element to)
 {
     if (InBounds(x, y + 1) && grid[x][y + 1] == with)
     {
@@ -237,25 +250,25 @@ bool Fall(int x, int y)
     {
         if (InBounds(x, y + distance) && grid[x][y + distance] == Empty)
             return swap(&grid[x][y], &grid[x][y + distance]);
-        else if (InBounds(x + 1, y + distance) && grid[x + 1][y + distance] == Empty)
-            return swap(&grid[x][y], &grid[x + 1][y + distance]);
-        else if (InBounds(x - 1, y + distance) && grid[x - 1][y + distance] == Empty)
-            return swap(&grid[x][y], &grid[x - 1][y + distance]);
+        else if (InBounds(x + distance, y + distance) && grid[x + distance][y + distance] == Empty)
+            return swap(&grid[x][y], &grid[x + distance][y + distance]);
+        else if (InBounds(x - distance, y + distance) && grid[x - distance][y + distance] == Empty)
+            return swap(&grid[x][y], &grid[x - distance][y + distance]);
     }
     
     return false;
 }
 
-bool FallIn(int x, int y, CellType type)
+bool FallIn(int x, int y, Element type)
 {
     for (int distance = gravity; distance > 0; distance--)
     {
-        if (InBounds(x, y + 1) && grid[x][y + distance] == type)
+        if (InBounds(x, y + distance) && grid[x][y + distance] == type)
             return swap(&grid[x][y], &grid[x][y + distance]);
-        else if (InBounds(x + 1, y + 1) && grid[x + 1][y + distance] == type)
-            return swap(&grid[x][y], &grid[x + 1][y + distance]);
-        else if (InBounds(x - 1, y + 1) && grid[x - 1][y + distance] == type)
-            return swap(&grid[x][y], &grid[x - 1][y + distance]);
+        else if (InBounds(x + distance, y + distance) && grid[x + distance][y + distance] == type)
+            return swap(&grid[x][y], &grid[x + distance][y + distance]);
+        else if (InBounds(x - distance, y + distance) && grid[x - distance][y + distance] == type)
+            return swap(&grid[x][y], &grid[x - distance][y + distance]);
     }
     
     return false;
