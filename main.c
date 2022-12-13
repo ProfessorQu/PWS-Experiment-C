@@ -26,23 +26,21 @@ static void Draw();
 
 static void Inputs();
 
-static void UpdateGridLeft();
-static void UpdateGridRight();
+void UpdateGridUpwards(int direction);
+void UpdateGridDownwards(int direction);
 
-bool Fall(int x, int y);
-bool FallIn(int x, int y, Element type);
-
-void UpdateEmpty(int x, int y);
+bool Fall(int x, int y, int direction);
+bool FallIn(int x, int y, int direction, Element type);
 
 void UpdateWater(int x, int y);
-bool WaterSpread(int x, int y);
+bool Spread(int x, int y, int spread);
 
 void UpdateSand(int x, int y);
 bool React(int x, int y, Element with, Element to);
 
 void UpdateProduct(int x, int y);
 
-void SetElement(int size, Element type);
+void SetElement(int x, int y, int size, Element type);
 
 //----------------------------------------------------------------------------------
 // Local Variables Definition (local to this module)
@@ -50,6 +48,7 @@ void SetElement(int size, Element type);
 const int gravity = 3;
 
 const int waterSpreadRate = 5;
+const int productSpreadRate = 1;
 
 bool left = false;
 
@@ -107,9 +106,15 @@ void Update()
     // Update Grid
     //---------------------------------------------------------
     if (left)
-        UpdateGridLeft();
+    {
+        UpdateGridUpwards(1);
+        UpdateGridDownwards(1);
+    }
     else
-        UpdateGridRight();
+    {
+        UpdateGridUpwards(-1);
+        UpdateGridDownwards(-1);
+    }
     
     left = !left;
 }
@@ -119,14 +124,18 @@ void Update()
 //----------------------------------------------------------------------------------
 void Inputs()
 {
+    // Get the mouse position
+    int mouseX = GetMouseX() / cellSize;
+    int mouseY = GetMouseY() / cellSize;
+
     // Spawning Cells
     //---------------------------------------------------------
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-        SetElement(10, Water);
+        SetElement(mouseX, mouseY, 10, Water);
     else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
-        SetElement(5, Sand);
+        SetElement(mouseX, mouseY, 5, Sand);
     else if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
-        SetElement(10, Empty);
+        SetElement(mouseX, mouseY, 10, Empty);
     
     // Reset Grid
     //---------------------------------------------------------
@@ -137,68 +146,99 @@ void Inputs()
 }
 
 //----------------------------------------------------------------------------------
-// Update grid left to right
+// Update grid from bottom to top
 //----------------------------------------------------------------------------------
-void UpdateGridLeft()
+void UpdateGridUpwards(int direction)
 {
-    for (int y = gridHeight - 1; y >= 0 ; y--)
-    {
-        for (int x = 0; x < gridWidth; x++)
-        {
-            if (grid[x][y] == Water)
-                UpdateWater(x, y);
-            else if (grid[x][y] == Sand)
-                UpdateSand(x, y);
-            else if (grid[x][y] == Product)
-                UpdateProduct(x, y);
-        }
-    }
+    if (direction == 1)
+        for (int y = gridHeight - 1; y >= 0 ; y--)
+            for (int x = 0; x < gridWidth; x++)
+            {
+                if (grid[x][y] == Water)
+                    UpdateWater(x, y);
+                else if (grid[x][y] == Sand)
+                    UpdateSand(x, y);
+            }
+
+    else
+        for (int y = gridHeight - 1; y >= 0 ; y--)
+            for (int x = gridWidth - 1; x >= 0; x--)
+            {
+                if (grid[x][y] == Water)
+                    UpdateWater(x, y);
+                else if (grid[x][y] == Sand)
+                    UpdateSand(x, y);
+            }
 }
 
 //----------------------------------------------------------------------------------
-// Update grid right to left
+// Update grid from top to bottom
 //----------------------------------------------------------------------------------
-void UpdateGridRight()
+void UpdateGridDownwards(int direction)
 {
-    for (int y = gridHeight - 1; y >= 0 ; y--)
-    {
-        for (int x = gridWidth - 1; x >= 0; x--)
-        {
-            if (grid[x][y] == Water)
-                UpdateWater(x, y);
-            else if (grid[x][y] == Sand)
-                UpdateSand(x, y);
-            else if (grid[x][y] == Product)
-                UpdateProduct(x, y);
-        }
-    }
+    if (direction == 1)
+        for (int y = 0; y < gridHeight; y++)
+            for (int x = 0; x < gridWidth; x++)
+            {
+                if (grid[x][y] == Product)
+                    UpdateProduct(x, y);
+            }
+
+    else
+        for (int y = 0; y < gridHeight; y++)
+            for (int x = gridWidth - 1; x >= 0; x--)
+            {
+                if (grid[x][y] == Product)
+                    UpdateProduct(x, y);
+            }
 }
 
 //----------------------------------------------------------------------------------
 // Spawn cells
 //----------------------------------------------------------------------------------
-void SetElement(int size, Element type)
+void SetElement(int x, int y, int size, Element type)
 {
-    // Get the mouse position
-    int mouseX = GetMouseX() / cellSize;
-    int mouseY = GetMouseY() / cellSize;
 
     // Set cells in a (2*size)*(2*size) square
     for (int cx = -size; cx <= size; cx++)
         for (int cy = -size; cy <= size; cy++)
-            if (InBounds(mouseX + cx, mouseY + cy))
-                grid[mouseX + cx][mouseY + cy] = type;
+            if (InBounds(x + cx, y + cy))
+                grid[x + cx][y + cy] = type;
 }
 
+//----------------------------------------------------------------------------------
+// Update Water
+//----------------------------------------------------------------------------------
 void UpdateWater(int x, int y)
 {
-    if (!Fall(x, y))
-        WaterSpread(x, y);
+    if (!Fall(x, y, -1))
+        Spread(x, y, waterSpreadRate);
 }
 
-bool WaterSpread(int x, int y)
+//----------------------------------------------------------------------------------
+// Update Sand
+//----------------------------------------------------------------------------------
+void UpdateSand(int x, int y)
 {
-    for (int distance = waterSpreadRate; distance > 0; distance--)
+    if (!React(x, y, Water, Product))
+        if (!Fall(x, y, -1))
+            FallIn(x, y, -1, Water);
+}
+
+//----------------------------------------------------------------------------------
+// Update Product
+//----------------------------------------------------------------------------------
+void UpdateProduct(int x, int y)
+{
+    if (!Fall(x, y, 1))
+        if (!FallIn(x, y, 1, Water))
+            if (!FallIn(x, y, 1, Sand))
+                Spread(x, y, productSpreadRate);
+}
+
+bool Spread(int x, int y, int spread)
+{
+    for (int distance = spread; distance > 0; distance--)
     {
         int randomDirection = rand() % 3 - 1;
         int offset = distance * randomDirection;
@@ -212,20 +252,9 @@ bool WaterSpread(int x, int y)
     return false;
 }
 
-void UpdateSand(int x, int y)
-{
-    if (!React(x, y, Water, Product))
-        if (!Fall(x, y))
-            FallIn(x, y, Water);
-}
-
-void UpdateProduct(int x, int y)
-{
-    if (!Fall(x, y))
-        if (!FallIn(x, y, Water))
-            FallIn(x, y, Sand);
-}
-
+//----------------------------------------------------------------------------------
+// React
+//----------------------------------------------------------------------------------
 bool React(int x, int y, Element with, Element to)
 {
     if (InBounds(x, y + 1) && grid[x][y + 1] == with)
@@ -244,32 +273,61 @@ bool React(int x, int y, Element with, Element to)
     return false;
 }
 
-bool Fall(int x, int y)
+//----------------------------------------------------------------------------------
+// Fall
+//----------------------------------------------------------------------------------
+bool Fall(int x, int y, int direction)
 {
-    for (int distance = gravity; distance > 0; distance--)
-    {
-        if (InBounds(x, y + distance) && grid[x][y + distance] == Empty)
-            return swap(&grid[x][y], &grid[x][y + distance]);
-        else if (InBounds(x + distance, y + distance) && grid[x + distance][y + distance] == Empty)
-            return swap(&grid[x][y], &grid[x + distance][y + distance]);
-        else if (InBounds(x - distance, y + distance) && grid[x - distance][y + distance] == Empty)
-            return swap(&grid[x][y], &grid[x - distance][y + distance]);
-    }
+    if (direction == -1)
+        for (int distance = gravity; distance > 0; distance--)
+        {
+            if (InBounds(x, y + distance) && grid[x][y + distance] == Empty)
+                return swap(&grid[x][y], &grid[x][y + distance]);
+            else if (InBounds(x + distance, y + distance) && grid[x + distance][y + distance] == Empty)
+                return swap(&grid[x][y], &grid[x + distance][y + distance]);
+            else if (InBounds(x - distance, y + distance) && grid[x - distance][y + distance] == Empty)
+                return swap(&grid[x][y], &grid[x - distance][y + distance]);
+        }
+    else
+        for (int distance = gravity; distance > 0; distance--)
+        {
+            if (InBounds(x, y - distance) && grid[x][y - distance] == Empty)
+                return swap(&grid[x][y], &grid[x][y - distance]);
+            else if (InBounds(x + distance, y - distance) && grid[x + distance][y - distance] == Empty)
+                return swap(&grid[x][y], &grid[x + distance][y - distance]);
+            else if (InBounds(x - distance, y - distance) && grid[x - distance][y - distance] == Empty)
+                return swap(&grid[x][y], &grid[x - distance][y - distance]);
+        }
+
     
     return false;
 }
 
-bool FallIn(int x, int y, Element type)
+//----------------------------------------------------------------------------------
+// Fall In Element
+//----------------------------------------------------------------------------------
+bool FallIn(int x, int y, int direction, Element type)
 {
-    for (int distance = gravity; distance > 0; distance--)
-    {
-        if (InBounds(x, y + distance) && grid[x][y + distance] == type)
-            return swap(&grid[x][y], &grid[x][y + distance]);
-        else if (InBounds(x + distance, y + distance) && grid[x + distance][y + distance] == type)
-            return swap(&grid[x][y], &grid[x + distance][y + distance]);
-        else if (InBounds(x - distance, y + distance) && grid[x - distance][y + distance] == type)
-            return swap(&grid[x][y], &grid[x - distance][y + distance]);
-    }
+    if (direction == -1)
+        for (int distance = gravity; distance > 0; distance--)
+        {
+            if (InBounds(x, y + distance) && grid[x][y + distance] == type)
+                return swap(&grid[x][y], &grid[x][y + distance]);
+            else if (InBounds(x + distance, y + distance) && grid[x + distance][y + distance] == type)
+                return swap(&grid[x][y], &grid[x + distance][y + distance]);
+            else if (InBounds(x - distance, y + distance) && grid[x - distance][y + distance] == type)
+                return swap(&grid[x][y], &grid[x - distance][y + distance]);
+        }
+    else
+        for (int distance = gravity; distance > 0; distance--)
+        {
+            if (InBounds(x, y - distance) && grid[x][y - distance] == type)
+                return swap(&grid[x][y], &grid[x][y - distance]);
+            else if (InBounds(x + distance, y - distance) && grid[x + distance][y - distance] == type)
+                return swap(&grid[x][y], &grid[x + distance][y - distance]);
+            else if (InBounds(x - distance, y - distance) && grid[x - distance][y - distance] == type)
+                return swap(&grid[x][y], &grid[x - distance][y - distance]);
+        }
     
     return false;
 }
@@ -291,9 +349,9 @@ void Draw()
                 if (grid[x][y] == Water)
                     DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, BLUE);
                 else if (grid[x][y] == Sand)
-                    DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, BROWN);
+                    DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, BEIGE);
                 else if (grid[x][y] == Product)
-                    DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, RED);
+                    DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, LIGHTGRAY);
             }
 
         DrawFPS(10, 10);
