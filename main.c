@@ -48,7 +48,7 @@ void SetElement(int x, int y, int size, Element type);
 const int gravity = 3;
 
 const int waterSpreadRate = 5;
-const int productSpreadRate = 1;
+const int productSpreadRate = 10;
 
 bool left = false;
 
