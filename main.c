@@ -36,7 +36,7 @@ void UpdateWater(int x, int y);
 bool Spread(int x, int y, int spread);
 
 void UpdateSand(int x, int y);
-bool React(int x, int y, Element with, Element to);
+bool React(int x, int y, Element with, Element into1, Element into2);
 
 void UpdateProduct(int x, int y);
 
@@ -220,7 +220,7 @@ void UpdateWater(int x, int y)
 //----------------------------------------------------------------------------------
 void UpdateSand(int x, int y)
 {
-    if (!React(x, y, Water, Product))
+    if (!React(x, y, Water, Product, Empty))
         if (!Fall(x, y, -1))
             FallIn(x, y, -1, Water);
 }
@@ -238,9 +238,12 @@ void UpdateProduct(int x, int y)
 
 bool Spread(int x, int y, int spread)
 {
+    int randomDirection = rand() % 3 - 1;
+    while (randomDirection == 0)
+        randomDirection = rand() % 3 - 1;
+
     for (int distance = spread; distance > 0; distance--)
     {
-        int randomDirection = rand() % 3 - 1;
         int offset = distance * randomDirection;
 
         if (InBounds(x + offset, y) && grid[x + offset][y] == Empty)
@@ -255,19 +258,21 @@ bool Spread(int x, int y, int spread)
 //----------------------------------------------------------------------------------
 // React
 //----------------------------------------------------------------------------------
-bool React(int x, int y, Element with, Element to)
+bool React(int x, int y, Element with, Element into1, Element into2)
 {
     if (InBounds(x, y + 1) && grid[x][y + 1] == with)
     {
-        grid[x][y] = to;
-        grid[x][y + 1] = Empty;
-        return swap(&grid[x][y], &grid[x][y + 1]);
+        grid[x][y] = into1;
+        grid[x][y + 1] = into2;
+
+        return true;
     }
     else if (InBounds(x, y - 1) && grid[x][y - 1] == with)
     {
-        grid[x][y] = to;
-        grid[x][y - 1] = Empty;
-        return swap(&grid[x][y], &grid[x][y - 1]);
+        grid[x][y] = into1;
+        grid[x][y - 1] = into2;
+
+        return true;
     }
 
     return false;
@@ -278,29 +283,7 @@ bool React(int x, int y, Element with, Element to)
 //----------------------------------------------------------------------------------
 bool Fall(int x, int y, int direction)
 {
-    if (direction == -1)
-        for (int distance = gravity; distance > 0; distance--)
-        {
-            if (InBounds(x, y + distance) && grid[x][y + distance] == Empty)
-                return swap(&grid[x][y], &grid[x][y + distance]);
-            else if (InBounds(x + distance, y + distance) && grid[x + distance][y + distance] == Empty)
-                return swap(&grid[x][y], &grid[x + distance][y + distance]);
-            else if (InBounds(x - distance, y + distance) && grid[x - distance][y + distance] == Empty)
-                return swap(&grid[x][y], &grid[x - distance][y + distance]);
-        }
-    else
-        for (int distance = gravity; distance > 0; distance--)
-        {
-            if (InBounds(x, y - distance) && grid[x][y - distance] == Empty)
-                return swap(&grid[x][y], &grid[x][y - distance]);
-            else if (InBounds(x + distance, y - distance) && grid[x + distance][y - distance] == Empty)
-                return swap(&grid[x][y], &grid[x + distance][y - distance]);
-            else if (InBounds(x - distance, y - distance) && grid[x - distance][y - distance] == Empty)
-                return swap(&grid[x][y], &grid[x - distance][y - distance]);
-        }
-
-    
-    return false;
+    return FallIn(x, y, direction, Empty);
 }
 
 //----------------------------------------------------------------------------------
