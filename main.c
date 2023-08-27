@@ -199,7 +199,7 @@ void UpdateGridDownwards(int direction)
 void SetElement(int x, int y, int size, Element type)
 {
 
-    // Set cells in a (2*size)*(2*size) square
+    // Set cells in a (2*size)x(2*size) square
     for (int cx = -size; cx <= size; cx++)
         for (int cy = -size; cy <= size; cy++)
             if (InBounds(x + cx, y + cy))
@@ -238,9 +238,9 @@ void UpdateProduct(int x, int y)
 
 bool Spread(int x, int y, int spread)
 {
-    int randomDirection = rand() % 3 - 1;
-    while (randomDirection == 0)
-        randomDirection = rand() % 3 - 1;
+    int randomDirection = rand() % 2;
+    if (randomDirection == 0)
+        randomDirection = -1;
 
     for (int distance = spread; distance > 0; distance--)
     {
