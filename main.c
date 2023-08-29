@@ -6,9 +6,26 @@
 //----------------------------------------------------------------------------------
 // Global Variables Definition
 //----------------------------------------------------------------------------------
-typedef enum {
-    Empty, Water, Sand, Product
+typedef struct {
+    int id;
+    Color color;
+
+    int density;
+    int spreadRate;
+
+    int withId;
+    int into1Id;
+    int into2Id;
 } Element;
+
+const int numElements = 4;
+
+Element elements[] = {
+    { 0, RAYWHITE,  3, 30 },            // Air
+    { 1, BLUE,      5, 5, 1, 3, 3  },            // Water
+    { 2, BEIGE,     7, 0  },    // Sand
+    { 3, RED,       1, 30, 1, 2, 2 }             // Product
+};
 
 #define screenWidth 800
 #define screenHeight 800
@@ -21,24 +38,21 @@ typedef enum {
 //----------------------------------------------------------------------------------
 // Local Functions Declaration
 //----------------------------------------------------------------------------------
+void InitGrid();
+
 static void Update();
 static void Draw();
 
 static void Inputs();
 
-void UpdateGridUpwards(int direction);
-void UpdateGridDownwards(int direction);
+void UpdateGrid();
 
-bool Fall(int x, int y, int direction);
-bool FallIn(int x, int y, int direction, Element type);
+bool Fall(int x, int y);
 
-void UpdateWater(int x, int y);
+void UpdateElement(int x, int y);
+
 bool Spread(int x, int y, int spread);
-
-void UpdateSand(int x, int y);
 bool React(int x, int y, Element with, Element into1, Element into2);
-
-void UpdateProduct(int x, int y);
 
 void SetElement(int x, int y, int size, Element type);
 
@@ -46,9 +60,6 @@ void SetElement(int x, int y, int size, Element type);
 // Local Variables Definition (local to this module)
 //----------------------------------------------------------------------------------
 const int gravity = 3;
-
-const int waterSpreadRate = 5;
-const int productSpreadRate = 10;
 
 bool left = false;
 
@@ -61,7 +72,7 @@ bool InBounds(int x, int y)
 
 bool swap(Element *a, Element *b)
 {
-    int temp = *a;
+    Element temp = *a;
     *a = *b;
     *b = temp;
 
@@ -81,6 +92,8 @@ int main()
     SetTargetFPS(60);
     //----------------------------------------------------------
 
+    InitGrid();
+
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
@@ -96,6 +109,13 @@ int main()
     return 0;
 }
 
+void InitGrid()
+{
+    for (int x = 0; x < gridWidth; x++)
+        for (int y = 0; y < gridHeight; y++)
+            grid[x][y] = elements[0];
+}
+
 //----------------------------------------------------------------------------------
 // Update everything
 //----------------------------------------------------------------------------------
@@ -105,16 +125,7 @@ void Update()
         
     // Update Grid
     //---------------------------------------------------------
-    if (left)
-    {
-        UpdateGridUpwards(1);
-        UpdateGridDownwards(1);
-    }
-    else
-    {
-        UpdateGridUpwards(-1);
-        UpdateGridDownwards(-1);
-    }
+    UpdateGrid();
     
     left = !left;
 }
@@ -131,65 +142,36 @@ void Inputs()
     // Spawning Cells
     //---------------------------------------------------------
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-        SetElement(mouseX, mouseY, 10, Water);
+        SetElement(mouseX, mouseY, 10, elements[1]);
     else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
-        SetElement(mouseX, mouseY, 5, Sand);
+        SetElement(mouseX, mouseY, 5, elements[2]);
     else if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
-        SetElement(mouseX, mouseY, 10, Empty);
+        SetElement(mouseX, mouseY, 10, elements[0]);
     
     // Reset Grid
     //---------------------------------------------------------
     if (IsKeyPressed(KEY_R))
         for (int x = 0; x < gridWidth; x++)
             for (int y = 0; y < gridHeight; y++)
-                grid[x][y] = Empty;
+                grid[x][y] = elements[0];
 }
 
 //----------------------------------------------------------------------------------
 // Update grid from bottom to top
 //----------------------------------------------------------------------------------
-void UpdateGridUpwards(int direction)
+void UpdateGrid()
 {
-    if (direction == 1)
+    if (left)
         for (int y = gridHeight - 1; y >= 0 ; y--)
             for (int x = 0; x < gridWidth; x++)
             {
-                if (grid[x][y] == Water)
-                    UpdateWater(x, y);
-                else if (grid[x][y] == Sand)
-                    UpdateSand(x, y);
+                UpdateElement(x, y);
             }
-
     else
         for (int y = gridHeight - 1; y >= 0 ; y--)
             for (int x = gridWidth - 1; x >= 0; x--)
             {
-                if (grid[x][y] == Water)
-                    UpdateWater(x, y);
-                else if (grid[x][y] == Sand)
-                    UpdateSand(x, y);
-            }
-}
-
-//----------------------------------------------------------------------------------
-// Update grid from top to bottom
-//----------------------------------------------------------------------------------
-void UpdateGridDownwards(int direction)
-{
-    if (direction == 1)
-        for (int y = 0; y < gridHeight; y++)
-            for (int x = 0; x < gridWidth; x++)
-            {
-                if (grid[x][y] == Product)
-                    UpdateProduct(x, y);
-            }
-
-    else
-        for (int y = 0; y < gridHeight; y++)
-            for (int x = gridWidth - 1; x >= 0; x--)
-            {
-                if (grid[x][y] == Product)
-                    UpdateProduct(x, y);
+                UpdateElement(x, y);
             }
 }
 
@@ -198,7 +180,6 @@ void UpdateGridDownwards(int direction)
 //----------------------------------------------------------------------------------
 void SetElement(int x, int y, int size, Element type)
 {
-
     // Set cells in a (2*size)x(2*size) square
     for (int cx = -size; cx <= size; cx++)
         for (int cy = -size; cy <= size; cy++)
@@ -206,34 +187,19 @@ void SetElement(int x, int y, int size, Element type)
                 grid[x + cx][y + cy] = type;
 }
 
-//----------------------------------------------------------------------------------
-// Update Water
-//----------------------------------------------------------------------------------
-void UpdateWater(int x, int y)
-{
-    if (!Fall(x, y, -1))
-        Spread(x, y, waterSpreadRate);
-}
+void UpdateElement(int x, int y) {
+    if (grid[x][y].withId != 0)
+    {
+        Element with = elements[grid[x][y].withId];
+        Element into1 = elements[grid[x][y].into1Id];
+        Element into2 = elements[grid[x][y].into2Id];
 
-//----------------------------------------------------------------------------------
-// Update Sand
-//----------------------------------------------------------------------------------
-void UpdateSand(int x, int y)
-{
-    if (!React(x, y, Water, Product, Empty))
-        if (!Fall(x, y, -1))
-            FallIn(x, y, -1, Water);
-}
-
-//----------------------------------------------------------------------------------
-// Update Product
-//----------------------------------------------------------------------------------
-void UpdateProduct(int x, int y)
-{
-    if (!Fall(x, y, 1))
-        if (!FallIn(x, y, 1, Water))
-            if (!FallIn(x, y, 1, Sand))
-                Spread(x, y, productSpreadRate);
+        if (!React(x, y, with, into1, into2))
+            if (!Fall(x, y))
+                Spread(x, y, grid[x][y].spreadRate);
+    }
+    else if (!Fall(x, y))
+        Spread(x, y, grid[x][y].spreadRate);
 }
 
 bool Spread(int x, int y, int spread)
@@ -246,9 +212,9 @@ bool Spread(int x, int y, int spread)
     {
         int offset = distance * randomDirection;
 
-        if (InBounds(x + offset, y) && grid[x + offset][y] == Empty)
+        if (InBounds(x + offset, y) && grid[x + offset][y].density < grid[x][y].density)
             return swap(&grid[x][y], &grid[x + offset][y]);
-        else if (InBounds(x - offset, y) && grid[x - offset][y] == Empty)
+        else if (InBounds(x - offset, y) && grid[x - offset][y].density < grid[x][y].density)
             return swap(&grid[x][y], &grid[x - offset][y]);
     }
     
@@ -260,14 +226,14 @@ bool Spread(int x, int y, int spread)
 //----------------------------------------------------------------------------------
 bool React(int x, int y, Element with, Element into1, Element into2)
 {
-    if (InBounds(x, y + 1) && grid[x][y + 1] == with)
+    if (InBounds(x, y + 1) && grid[x][y + 1].id == with.id)
     {
         grid[x][y] = into1;
         grid[x][y + 1] = into2;
 
         return true;
     }
-    else if (InBounds(x, y - 1) && grid[x][y - 1] == with)
+    else if (InBounds(x, y - 1) && grid[x][y - 1].id == with.id)
     {
         grid[x][y] = into1;
         grid[x][y - 1] = into2;
@@ -281,36 +247,17 @@ bool React(int x, int y, Element with, Element into1, Element into2)
 //----------------------------------------------------------------------------------
 // Fall
 //----------------------------------------------------------------------------------
-bool Fall(int x, int y, int direction)
+bool Fall(int x, int y)
 {
-    return FallIn(x, y, direction, Empty);
-}
-
-//----------------------------------------------------------------------------------
-// Fall In Element
-//----------------------------------------------------------------------------------
-bool FallIn(int x, int y, int direction, Element type)
-{
-    if (direction == -1)
-        for (int distance = gravity; distance > 0; distance--)
-        {
-            if (InBounds(x, y + distance) && grid[x][y + distance] == type)
-                return swap(&grid[x][y], &grid[x][y + distance]);
-            else if (InBounds(x + distance, y + distance) && grid[x + distance][y + distance] == type)
-                return swap(&grid[x][y], &grid[x + distance][y + distance]);
-            else if (InBounds(x - distance, y + distance) && grid[x - distance][y + distance] == type)
-                return swap(&grid[x][y], &grid[x - distance][y + distance]);
-        }
-    else
-        for (int distance = gravity; distance > 0; distance--)
-        {
-            if (InBounds(x, y - distance) && grid[x][y - distance] == type)
-                return swap(&grid[x][y], &grid[x][y - distance]);
-            else if (InBounds(x + distance, y - distance) && grid[x + distance][y - distance] == type)
-                return swap(&grid[x][y], &grid[x + distance][y - distance]);
-            else if (InBounds(x - distance, y - distance) && grid[x - distance][y - distance] == type)
-                return swap(&grid[x][y], &grid[x - distance][y - distance]);
-        }
+    for (int distance = gravity; distance > 0; distance--)
+    {
+        if (InBounds(x, y + distance) && grid[x][y + distance].density < grid[x][y].density)
+            return swap(&grid[x][y], &grid[x][y + distance]);
+        else if (InBounds(x + distance, y + distance) && grid[x + distance][y + distance].density < grid[x][y].density)
+            return swap(&grid[x][y], &grid[x + distance][y + distance]);
+        else if (InBounds(x - distance, y + distance) && grid[x - distance][y + distance].density < grid[x][y].density)
+            return swap(&grid[x][y], &grid[x - distance][y + distance]);
+    }
     
     return false;
 }
@@ -328,16 +275,8 @@ void Draw()
         // Draw grid
         for (int x = 0; x < gridWidth; x++)
             for (int y = 0; y < gridHeight; y++)
-            {
-                if (grid[x][y] == Water)
-                    DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, BLUE);
-                else if (grid[x][y] == Sand)
-                    DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, BEIGE);
-                else if (grid[x][y] == Product)
-                    DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, LIGHTGRAY);
-            }
+                DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, grid[x][y].color);
 
         DrawFPS(10, 10);
-
     EndDrawing();
 }
