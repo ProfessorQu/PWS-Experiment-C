@@ -8,6 +8,7 @@
 //----------------------------------------------------------------------------------
 typedef struct {
     int id;
+    int updated;
     Color color;
 
     int density;
@@ -18,13 +19,15 @@ typedef struct {
     int into2Id;
 } Element;
 
-const int numElements = 4;
+#define maxUpdates 10
 
-Element elements[] = {
-    { 0, RAYWHITE,  3, 30 },            // Air
-    { 1, BLUE,      5, 5, 1, 3, 3  },            // Water
-    { 2, BEIGE,     7, 0  },    // Sand
-    { 3, RED,       1, 30, 1, 2, 2 }             // Product
+#define numElements 4
+
+Element elements[numElements] = {
+    { 0, 0, GRAY,  2, 30  },        // Air
+    { 1, 0, BLUE,  3, 5,  },        // Water
+    { 2, 0, BEIGE, 4, 0, 1, 3, 3 }, // Sand
+    { 3, 0, RED,   1, 0, }         // Product
 };
 
 #define screenWidth 800
@@ -38,7 +41,7 @@ Element elements[] = {
 //----------------------------------------------------------------------------------
 // Local Functions Declaration
 //----------------------------------------------------------------------------------
-void InitGrid();
+void ResetGrid();
 
 static void Update();
 static void Draw();
@@ -72,6 +75,9 @@ bool InBounds(int x, int y)
 
 bool swap(Element *a, Element *b)
 {
+    if (a->updated > maxUpdates || b->updated > maxUpdates)
+        return true;
+
     Element temp = *a;
     *a = *b;
     *b = temp;
@@ -89,10 +95,10 @@ int main()
     srand(time(0));
     InitWindow(screenWidth, screenHeight, "Chemistry Simulation");
 
+    ResetGrid();
+
     SetTargetFPS(60);
     //----------------------------------------------------------
-
-    InitGrid();
 
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
@@ -109,7 +115,7 @@ int main()
     return 0;
 }
 
-void InitGrid()
+void ResetGrid()
 {
     for (int x = 0; x < gridWidth; x++)
         for (int y = 0; y < gridHeight; y++)
@@ -121,13 +127,19 @@ void InitGrid()
 //----------------------------------------------------------------------------------
 void Update()
 {
+    for (int x = 0; x < gridWidth; x++)
+        for (int y = 0; y < gridHeight; y++)
+            grid[x][y].updated = 0;
+
+    // Process inputs
+    //---------------------------------------------------------
     Inputs();
+
         
     // Update Grid
     //---------------------------------------------------------
-    UpdateGrid();
-    
-    left = !left;
+    if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE))
+        UpdateGrid();
 }
 
 //----------------------------------------------------------------------------------
@@ -142,18 +154,16 @@ void Inputs()
     // Spawning Cells
     //---------------------------------------------------------
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-        SetElement(mouseX, mouseY, 10, elements[1]);
+        SetElement(mouseX, mouseY, 3, elements[1]);
     else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
         SetElement(mouseX, mouseY, 5, elements[2]);
-    else if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
-        SetElement(mouseX, mouseY, 10, elements[0]);
+    // else if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
+    //     SetElement(mouseX, mouseY, 10, elements[0]);
     
     // Reset Grid
     //---------------------------------------------------------
     if (IsKeyPressed(KEY_R))
-        for (int x = 0; x < gridWidth; x++)
-            for (int y = 0; y < gridHeight; y++)
-                grid[x][y] = elements[0];
+        ResetGrid();
 }
 
 //----------------------------------------------------------------------------------
@@ -164,15 +174,13 @@ void UpdateGrid()
     if (left)
         for (int y = gridHeight - 1; y >= 0 ; y--)
             for (int x = 0; x < gridWidth; x++)
-            {
                 UpdateElement(x, y);
-            }
     else
         for (int y = gridHeight - 1; y >= 0 ; y--)
             for (int x = gridWidth - 1; x >= 0; x--)
-            {
                 UpdateElement(x, y);
-            }
+
+    left = !left;
 }
 
 //----------------------------------------------------------------------------------
@@ -194,23 +202,36 @@ void UpdateElement(int x, int y) {
         Element into1 = elements[grid[x][y].into1Id];
         Element into2 = elements[grid[x][y].into2Id];
 
-        if (!React(x, y, with, into1, into2))
+        if (!React(x, y, with, into1, into2)) {
             if (!Fall(x, y))
-                Spread(x, y, grid[x][y].spreadRate);
+            {
+                if (Spread(x, y, grid[x][y].spreadRate))
+                    grid[x][y].updated += 1;
+            }
+            else
+                grid[x][y].updated += 1;
+        }
+        else
+            grid[x][y].updated += 1;
     }
     else if (!Fall(x, y))
-        Spread(x, y, grid[x][y].spreadRate);
+    {
+        if (Spread(x, y, grid[x][y].spreadRate))
+            grid[x][y].updated += 1;
+    }
+    else
+        grid[x][y].updated += 1;
 }
 
 bool Spread(int x, int y, int spread)
 {
-    int randomDirection = rand() % 2;
-    if (randomDirection == 0)
-        randomDirection = -1;
+    // int randomDirection = rand() % 2;
+    // if (randomDirection == 0)
+    //     randomDirection = -1;
 
     for (int distance = spread; distance > 0; distance--)
     {
-        int offset = distance * randomDirection;
+        int offset = distance;
 
         if (InBounds(x + offset, y) && grid[x + offset][y].density < grid[x][y].density)
             return swap(&grid[x][y], &grid[x + offset][y]);
@@ -228,6 +249,9 @@ bool React(int x, int y, Element with, Element into1, Element into2)
 {
     if (InBounds(x, y + 1) && grid[x][y + 1].id == with.id)
     {
+        if (grid[x][y].updated > maxUpdates || grid[x][y + 1].updated > maxUpdates)
+            return true;
+
         grid[x][y] = into1;
         grid[x][y + 1] = into2;
 
@@ -235,6 +259,9 @@ bool React(int x, int y, Element with, Element into1, Element into2)
     }
     else if (InBounds(x, y - 1) && grid[x][y - 1].id == with.id)
     {
+        if (grid[x][y].updated > maxUpdates || grid[x][y - 1].updated > maxUpdates)
+            return true;
+        
         grid[x][y] = into1;
         grid[x][y - 1] = into2;
 
