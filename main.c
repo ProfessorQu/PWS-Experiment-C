@@ -8,26 +8,24 @@
 //----------------------------------------------------------------------------------
 typedef struct {
     int id;
-    int updated;
+    bool updated;
     Color color;
 
     int density;
     int spreadRate;
 
-    int withId;
-    int into1Id;
-    int into2Id;
+    int numReactions;
+    int reactions[3][5];
 } Element;
 
-#define maxUpdates 10
-
-#define numElements 4
+#define numElements 5
 
 Element elements[numElements] = {
-    { 0, 0, GRAY,  2, 30  },        // Air
-    { 1, 0, BLUE,  3, 5,  },        // Water
-    { 2, 0, BEIGE, 4, 0, 1, 3, 3 }, // Sand
-    { 3, 0, RED,   1, 0, }         // Product
+    { 0, false, WHITE, 0, 0, },
+    { 1, false, BLUE,  1, 10,  },        // Water
+    { 2, false, BEIGE, 4, 0, 1, {{1, 3, 3}} }, // Sand
+    { 3, false, RED,   -3, 30, },         // Product
+    { 4, false, ORANGE, 6, 1,}
 };
 
 #define screenWidth 800
@@ -48,13 +46,19 @@ static void Draw();
 
 static void Inputs();
 
-void UpdateGrid();
+void UpdateGridUpward();
+void UpdateGridDownward();
 
 bool Fall(int x, int y);
+bool FallDown(int x, int y);
+bool FallUp(int x, int y);
 
-void UpdateElement(int x, int y);
+void UpdateElement(int x, int y, bool up);
 
 bool Spread(int x, int y, int spread);
+bool SpreadDown(int x, int y, int randomDirection, int spread);
+bool SpreadUp(int x, int y, int randomDirection, int spread);
+
 bool React(int x, int y, Element with, Element into1, Element into2);
 
 void SetElement(int x, int y, int size, Element type);
@@ -63,8 +67,10 @@ void SetElement(int x, int y, int size, Element type);
 // Local Variables Definition (local to this module)
 //----------------------------------------------------------------------------------
 const int gravity = 3;
-
 bool left = false;
+
+int selectedId = 1;
+int size = 1;
 
 Element grid[gridWidth][gridHeight];
 
@@ -75,7 +81,7 @@ bool InBounds(int x, int y)
 
 bool swap(Element *a, Element *b)
 {
-    if (a->updated > maxUpdates || b->updated > maxUpdates)
+    if (a->updated || b->updated)
         return true;
 
     Element temp = *a;
@@ -127,19 +133,16 @@ void ResetGrid()
 //----------------------------------------------------------------------------------
 void Update()
 {
-    for (int x = 0; x < gridWidth; x++)
-        for (int y = 0; y < gridHeight; y++)
-            grid[x][y].updated = 0;
-
     // Process inputs
     //---------------------------------------------------------
     Inputs();
 
-        
     // Update Grid
     //---------------------------------------------------------
-    if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE))
-        UpdateGrid();
+    UpdateGridUpward();
+    UpdateGridDownward();
+
+    left = !left;
 }
 
 //----------------------------------------------------------------------------------
@@ -151,36 +154,59 @@ void Inputs()
     int mouseX = GetMouseX() / cellSize;
     int mouseY = GetMouseY() / cellSize;
 
+    if (IsKeyPressed(KEY_ONE))
+        selectedId = 1;
+    else if (IsKeyPressed(KEY_TWO))
+        selectedId = 2;
+    else if (IsKeyPressed(KEY_THREE))
+        selectedId = 3;
+    else if (IsKeyPressed(KEY_FOUR))
+        selectedId = 4;
+    
+    size += GetMouseWheelMove();
+    if (size < 0)
+        size = 0;
+    else if (size > 20)
+        size = 20;
+
     // Spawning Cells
     //---------------------------------------------------------
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-        SetElement(mouseX, mouseY, 3, elements[1]);
+        SetElement(mouseX, mouseY, size, elements[selectedId]);
     else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
-        SetElement(mouseX, mouseY, 5, elements[2]);
-    // else if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
-    //     SetElement(mouseX, mouseY, 10, elements[0]);
+        SetElement(mouseX, mouseY, size, elements[0]);
     
     // Reset Grid
     //---------------------------------------------------------
-    if (IsKeyPressed(KEY_R))
+    else if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE))
         ResetGrid();
 }
 
 //----------------------------------------------------------------------------------
 // Update grid from bottom to top
 //----------------------------------------------------------------------------------
-void UpdateGrid()
+void UpdateGridUpward()
 {
     if (left)
         for (int y = gridHeight - 1; y >= 0 ; y--)
             for (int x = 0; x < gridWidth; x++)
-                UpdateElement(x, y);
+                UpdateElement(x, y, true);
     else
         for (int y = gridHeight - 1; y >= 0 ; y--)
             for (int x = gridWidth - 1; x >= 0; x--)
-                UpdateElement(x, y);
+                UpdateElement(x, y, true);
+}
 
-    left = !left;
+void UpdateGridDownward()
+{
+    if (left)
+        for (int y = 0; y < gridHeight; y++)
+            for (int x = 0; x < gridWidth; x++)
+                UpdateElement(x, y, false);
+    else
+        for (int y = 0; y < gridHeight; y++)
+            for (int x = gridWidth - 1; x >= 0; x--)
+                UpdateElement(x, y, false);
 }
 
 //----------------------------------------------------------------------------------
@@ -195,50 +221,81 @@ void SetElement(int x, int y, int size, Element type)
                 grid[x + cx][y + cy] = type;
 }
 
-void UpdateElement(int x, int y) {
-    if (grid[x][y].withId != 0)
-    {
-        Element with = elements[grid[x][y].withId];
-        Element into1 = elements[grid[x][y].into1Id];
-        Element into2 = elements[grid[x][y].into2Id];
+void UpdateElement(int x, int y, bool up)
+{
+    if (grid[x][y].updated)
+        return;
+    else if (up && grid[x][y].density < 0)
+        return;
+    else if (!up && grid[x][y].density > 0)
+        return;
+    else if (grid[x][y].id == 0)
+        return;
 
-        if (!React(x, y, with, into1, into2)) {
-            if (!Fall(x, y))
+    if (grid[x][y].numReactions > 0)
+    {
+        bool reacted = false;
+        for (int i = 0; i < grid[x][y].numReactions; i++)
+        {
+            int* reaction = grid[x][y].reactions[i];
+            Element with = elements[reaction[0]];
+            Element into1 = elements[reaction[1]];
+            Element into2 = elements[reaction[2]];
+
+            if (React(x, y, with, into1, into2))
             {
-                if (Spread(x, y, grid[x][y].spreadRate))
-                    grid[x][y].updated += 1;
+                reacted = true;
+                break;
             }
-            else
-                grid[x][y].updated += 1;
         }
-        else
-            grid[x][y].updated += 1;
+
+        if (!reacted)
+            if (!Fall(x, y))
+                Spread(x, y, grid[x][y].spreadRate);
     }
     else if (!Fall(x, y))
-    {
-        if (Spread(x, y, grid[x][y].spreadRate))
-            grid[x][y].updated += 1;
-    }
-    else
-        grid[x][y].updated += 1;
+        Spread(x, y, grid[x][y].spreadRate);
 }
 
 bool Spread(int x, int y, int spread)
 {
-    // int randomDirection = rand() % 2;
-    // if (randomDirection == 0)
-    //     randomDirection = -1;
+    int randomDirection = rand() % 2;
+    if (randomDirection == 0)
+        randomDirection = -1;
 
+    if (grid[x][y].density > 0)
+        return SpreadDown(x, y, randomDirection, spread);
+    
+    return SpreadUp(x, y, randomDirection, spread);
+}
+
+bool SpreadDown(int x, int y, int randomDirection, int spread)
+{
     for (int distance = spread; distance > 0; distance--)
     {
-        int offset = distance;
+        int offset = distance * randomDirection;
 
-        if (InBounds(x + offset, y) && grid[x + offset][y].density < grid[x][y].density)
+        if (InBounds(x + offset, y) && grid[x][y].density > 0 && grid[x + offset][y].density < grid[x][y].density)
             return swap(&grid[x][y], &grid[x + offset][y]);
-        else if (InBounds(x - offset, y) && grid[x - offset][y].density < grid[x][y].density)
+        else if (InBounds(x - offset, y) && grid[x][y].density > 0 && grid[x - offset][y].density < grid[x][y].density)
             return swap(&grid[x][y], &grid[x - offset][y]);
     }
-    
+
+    return false;
+}
+
+bool SpreadUp(int x, int y, int randomDirection, int spread)
+{
+    for (int distance = spread; distance > 0; distance--)
+    {
+        int offset = distance * randomDirection;
+
+        if (InBounds(x + offset, y) && grid[x][y].density < 0 && grid[x + offset][y].density > grid[x][y].density)
+            return swap(&grid[x][y], &grid[x + offset][y]);
+        else if (InBounds(x - offset, y) && grid[x][y].density < 0 && grid[x - offset][y].density > grid[x][y].density)
+            return swap(&grid[x][y], &grid[x - offset][y]);
+    }
+
     return false;
 }
 
@@ -249,9 +306,8 @@ bool React(int x, int y, Element with, Element into1, Element into2)
 {
     if (InBounds(x, y + 1) && grid[x][y + 1].id == with.id)
     {
-        if (grid[x][y].updated > maxUpdates || grid[x][y + 1].updated > maxUpdates)
-            return true;
-
+        if (grid[x][y].updated || grid[x][y + 1].updated)
+            return false;
         grid[x][y] = into1;
         grid[x][y + 1] = into2;
 
@@ -259,9 +315,8 @@ bool React(int x, int y, Element with, Element into1, Element into2)
     }
     else if (InBounds(x, y - 1) && grid[x][y - 1].id == with.id)
     {
-        if (grid[x][y].updated > maxUpdates || grid[x][y - 1].updated > maxUpdates)
-            return true;
-        
+        if (grid[x][y].updated || grid[x][y - 1].updated)
+            return false;
         grid[x][y] = into1;
         grid[x][y - 1] = into2;
 
@@ -276,6 +331,15 @@ bool React(int x, int y, Element with, Element into1, Element into2)
 //----------------------------------------------------------------------------------
 bool Fall(int x, int y)
 {
+    if (grid[x][y].density < 0) {
+        return FallUp(x, y);
+    }
+
+    return FallDown(x, y);
+}
+
+bool FallDown(int x, int y)
+{
     for (int distance = gravity; distance > 0; distance--)
     {
         if (InBounds(x, y + distance) && grid[x][y + distance].density < grid[x][y].density)
@@ -285,7 +349,22 @@ bool Fall(int x, int y)
         else if (InBounds(x - distance, y + distance) && grid[x - distance][y + distance].density < grid[x][y].density)
             return swap(&grid[x][y], &grid[x - distance][y + distance]);
     }
-    
+
+    return false;
+}
+
+bool FallUp(int x, int y)
+{
+    for (int distance = gravity; distance > 0; distance--)
+    {
+        if (InBounds(x, y - distance) && grid[x][y - distance].density > grid[x][y].density)
+            return swap(&grid[x][y], &grid[x][y - distance]);
+        else if (InBounds(x + distance, y - distance) && grid[x + distance][y - distance].density > grid[x][y].density)
+            return swap(&grid[x][y], &grid[x + distance][y - distance]);
+        else if (InBounds(x - distance, y - distance) && grid[x - distance][y - distance].density > grid[x][y].density)
+            return swap(&grid[x][y], &grid[x - distance][y - distance]);
+    }
+
     return false;
 }
 
