@@ -155,7 +155,7 @@ void Inputs()
     int mouseX = GetMouseX() / cellSize;
     int mouseY = GetMouseY() / cellSize;
 
-    for (int i = 0; i < numElements; i++)
+    for (int i = 0; i < numElements - 1; i++)
         if (IsKeyPressed(KEY_ONE + i))
             selectedId = i + 1;
 
