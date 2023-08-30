@@ -18,14 +18,15 @@ typedef struct {
     int reactions[3][5];
 } Element;
 
-#define numElements 5
+#define numElements 6
 
 Element elements[numElements] = {
-    { 0, false, WHITE, 0, 0, },
-    { 1, false, BLUE,  1, 10,  },        // Water
-    { 2, false, BEIGE, 4, 0, 1, {{1, 3, 3}} }, // Sand
-    { 3, false, RED,   -3, 30, },         // Product
-    { 4, false, ORANGE, 6, 1,}
+    { 0, false, WHITE,   0, 0,                 }, // Air
+    { 1, false, BLUE,    1, 10,                }, // Water
+    { 2, false, BEIGE,   4, 0,  1, {{1, 3, 3}} }, // Sand
+    { 3, false, RED,    -5, 30,                }, // Product
+    { 4, false, ORANGE,  6, 1                  },
+    { 5, false, PURPLE, -3, 20, }
 };
 
 #define screenWidth 800
@@ -154,15 +155,10 @@ void Inputs()
     int mouseX = GetMouseX() / cellSize;
     int mouseY = GetMouseY() / cellSize;
 
-    if (IsKeyPressed(KEY_ONE))
-        selectedId = 1;
-    else if (IsKeyPressed(KEY_TWO))
-        selectedId = 2;
-    else if (IsKeyPressed(KEY_THREE))
-        selectedId = 3;
-    else if (IsKeyPressed(KEY_FOUR))
-        selectedId = 4;
-    
+    for (int i = 0; i < numElements; i++)
+        if (IsKeyPressed(KEY_ONE + i))
+            selectedId = i + 1;
+
     size += GetMouseWheelMove();
     if (size < 0)
         size = 0;
