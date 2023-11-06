@@ -26,7 +26,7 @@ Element elements[numElements] = {
     { 2, false, BEIGE,   4, 0,  1, {{1, 3, 3}} }, // Sand
     { 3, false, RED,    -5, 30,                }, // Product
     { 4, false, ORANGE,  6, 1                  },
-    { 5, false, PURPLE, -3, 20, }
+    { 5, false, PURPLE, -3, 20,                }
 };
 
 #define screenWidth 800
