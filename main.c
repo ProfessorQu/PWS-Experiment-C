@@ -3,12 +3,13 @@
 #include <time.h>
 #include "raylib.h"
 
+#define MAX(i, j) (((i) > (j)) ? (i) : (j))
+
 //----------------------------------------------------------------------------------
 // Global Variables Definition
 //----------------------------------------------------------------------------------
 typedef struct {
     int id;
-    bool updated;
     Color color;
 
     int density;
@@ -18,24 +19,56 @@ typedef struct {
     int reactions[3][5];
 } Element;
 
-#define numElements 6
+#define numElements 16
 
 Element elements[numElements] = {
-    { 0, false, WHITE,   0, 0,                 }, // Air
-    { 1, false, BLUE,    1, 10,                }, // Water
-    { 2, false, BEIGE,   4, 0,  1, {{1, 3, 3}} }, // Sand
-    { 3, false, RED,    -5, 30,                }, // Product
-    { 4, false, ORANGE,  6, 1                  },
-    { 5, false, PURPLE, -3, 20,                }
+    { 0,  WHITE,     0,    0  },                                 // Air
+    { 1,  BLUE,      997,  10 },                                 // H2O (l)
+    { 2,  BEIGE,     2160, 0,  1, {{1, 9, 8}} },                 // NaCl (s)
+    { 3,  DARKGRAY,  -1,   30 },                                 // CO2 (g)
+    { 4,  ORANGE,    -4,   30, 1, {{1, 8, 3}}},                  // CH4 (g)
+    { 5,  RED,       -3,   30, 2, {{1, 15, 15}, {3, 1, 14}}},    // NH3 (g)
+    { 6,  PURPLE,    1513, 10, 2, {{2, 10, 11}, {5, 8, 12}}},    // HNO3 (l)
+    { 7,  GRAY,      1738, 0,  1, {{1, 8, 13}}},                 // Mg (s)
+    { 8,  PINK,      -5,   30 },                                 // H2 (g)
+    { 9,  GOLD,      1110, 10 },                                 // NaOCl (l)
+    { 10, GREEN,     -2,   30 },                                 // HCl (g)
+    { 11, BROWN,     2260, 0  },                                 // NaNO3 (s)
+    { 12, LIME,      1730, 0  },                                 // NH4NO3 (s)
+    { 13, MAGENTA,   3580, 0  },                                 // MgO (s)
+    { 14, LIGHTGRAY, 1335, 0  },                                 // NH2CONH2 (s)
+    { 15, VIOLET,    900,  10 },                                 // NH4OH (aq)
 };
 
-#define screenWidth 800
-#define screenHeight 800
+char* elementNames[numElements] = {
+    "Air (g)",
+    "H2O (l)",
+    "NaCl (s)",
+    "CO2 (g)",
+    "CH4 (g)",
+    "NH3 (g)",
+    "HNO3 (l)",
+    "Mg (s)",
+    "H2 (g)",
+    "NaOCl (l)",
+    "HCl (g)",
+    "NaNO3 (s)",
+    "NH4NO3 (s)",
+    "MgO (s)",
+    "NH2CONH2 (s)",
+    "NH4OH (aq)",
+};
+
+#define screenWidth 900
+#define screenHeight 900
 
 #define cellSize 5
 
 #define gridWidth (screenWidth / cellSize)
 #define gridHeight (screenHeight / cellSize)
+
+#define fontSize 40
+#define screenMargin 10
 
 //----------------------------------------------------------------------------------
 // Local Functions Declaration
@@ -82,9 +115,6 @@ bool InBounds(int x, int y)
 
 bool swap(Element *a, Element *b)
 {
-    if (a->updated || b->updated)
-        return true;
-
     Element temp = *a;
     *a = *b;
     *b = temp;
@@ -159,11 +189,32 @@ void Inputs()
         if (IsKeyPressed(KEY_ONE + i))
             selectedId = i + 1;
 
-    size += GetMouseWheelMove();
-    if (size < 0)
-        size = 0;
-    else if (size > 20)
-        size = 20;
+    int movement = GetMouseWheelMove();
+    if (IsKeyDown(KEY_LEFT_SHIFT)) {
+        size += movement;
+        if (size < 0)
+            size = 0;
+        else if (size > 20)
+            size = 20;
+    } else {
+        if (movement < 0) {
+            selectedId -= 1;
+            if (selectedId < 0) {
+                selectedId = numElements - 1;
+            }
+        } else if (movement > 0) {
+            selectedId += 1;
+        }
+
+        selectedId %= numElements;
+        if (selectedId == 0) {
+            if (movement > 0) {
+                selectedId = 1;
+            } else {
+                selectedId = numElements - 1;
+            }
+        }
+    }
 
     // Spawning Cells
     //---------------------------------------------------------
@@ -219,9 +270,7 @@ void SetElement(int x, int y, int size, Element type)
 
 void UpdateElement(int x, int y, bool up)
 {
-    if (grid[x][y].updated)
-        return;
-    else if (up && grid[x][y].density < 0)
+    if (up && grid[x][y].density < 0)
         return;
     else if (!up && grid[x][y].density > 0)
         return;
@@ -302,8 +351,6 @@ bool React(int x, int y, Element with, Element into1, Element into2)
 {
     if (InBounds(x, y + 1) && grid[x][y + 1].id == with.id)
     {
-        if (grid[x][y].updated || grid[x][y + 1].updated)
-            return false;
         grid[x][y] = into1;
         grid[x][y + 1] = into2;
 
@@ -311,8 +358,6 @@ bool React(int x, int y, Element with, Element into1, Element into2)
     }
     else if (InBounds(x, y - 1) && grid[x][y - 1].id == with.id)
     {
-        if (grid[x][y].updated || grid[x][y - 1].updated)
-            return false;
         grid[x][y] = into1;
         grid[x][y - 1] = into2;
 
@@ -379,6 +424,45 @@ void Draw()
             for (int y = 0; y < gridHeight; y++)
                 DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, grid[x][y].color);
 
-        DrawFPS(10, 10);
+        // Get the mouse position
+        int mouseX = GetMouseX() / cellSize;
+        int mouseY = GetMouseY() / cellSize;
+
+        int hoveredId = 0;
+        int hoveredTextWidth = 0;
+        if (InBounds(mouseX, mouseY)) {
+            hoveredId = grid[mouseX][mouseY].id;
+            hoveredTextWidth = MeasureText(elementNames[hoveredId], fontSize);
+        }
+        
+        int selectedTextWidth = MeasureText(elementNames[selectedId], fontSize);
+
+        int rectTextWidth = MAX(hoveredTextWidth, selectedTextWidth);
+
+        Color rectColor = RAYWHITE;
+        rectColor.a = 175;
+        DrawRectangle(
+            screenWidth - rectTextWidth - screenMargin * 2, 0,
+            rectTextWidth + screenMargin * 2, fontSize * 2 + screenMargin * 2,
+            rectColor
+        );
+        DrawText(
+            elementNames[selectedId],
+            screenWidth - selectedTextWidth - screenMargin,
+            screenMargin, fontSize, elements[selectedId].color
+        );
+
+        if (hoveredTextWidth != 0) {
+            Color hoveredColor = (hoveredId == 0) ? BLACK : elements[hoveredId].color;
+            DrawText(
+                elementNames[hoveredId],
+                screenWidth - hoveredTextWidth - screenMargin,
+                screenMargin + fontSize, fontSize,
+                hoveredColor
+                
+            );
+        }
+
+        DrawFPS(screenMargin, screenMargin);
     EndDrawing();
 }
