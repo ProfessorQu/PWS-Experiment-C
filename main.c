@@ -17,11 +17,11 @@ typedef struct {
 
     int numReactions;
     int reactions[3][5];
-} Element;
+} Substance;
 
-#define numElements 16
+#define numSubstances 16
 
-Element elements[numElements] = {
+Substance substances[numSubstances] = {
     { 0,  WHITE,     0,    0  },                                 // Air
     { 1,  BLUE,      997,  10 },                                 // H2O (l)
     { 2,  BEIGE,     2160, 0,  1, {{1, 9, 8}} },                 // NaCl (s)
@@ -40,7 +40,7 @@ Element elements[numElements] = {
     { 15, VIOLET,    900,  10 },                                 // NH4OH (aq)
 };
 
-char* elementNames[numElements] = {
+char* elementNames[numSubstances] = {
     "Air (g)",
     "H2O (l)",
     "NaCl (s)",
@@ -87,15 +87,15 @@ bool Fall(int x, int y);
 bool FallDown(int x, int y);
 bool FallUp(int x, int y);
 
-void UpdateElement(int x, int y, bool up);
+void UpdateSubstance(int x, int y, bool up);
 
 bool Spread(int x, int y, int spread);
 bool SpreadDown(int x, int y, int randomDirection, int spread);
 bool SpreadUp(int x, int y, int randomDirection, int spread);
 
-bool React(int x, int y, Element with, Element into1, Element into2);
+bool React(int x, int y, Substance with, Substance into1, Substance into2);
 
-void SetElement(int x, int y, int size, Element type);
+void SetElement(int x, int y, int size, Substance type);
 
 //----------------------------------------------------------------------------------
 // Local Variables Definition (local to this module)
@@ -106,16 +106,16 @@ bool left = false;
 int selectedId = 1;
 int size = 1;
 
-Element grid[gridWidth][gridHeight];
+Substance grid[gridWidth][gridHeight];
 
 bool InBounds(int x, int y)
 {
     return 0 <= x && x < gridWidth && 0 <= y && y < gridHeight;
 }
 
-bool swap(Element *a, Element *b)
+bool swap(Substance *a, Substance *b)
 {
-    Element temp = *a;
+    Substance temp = *a;
     *a = *b;
     *b = temp;
 
@@ -156,7 +156,7 @@ void ResetGrid()
 {
     for (int x = 0; x < gridWidth; x++)
         for (int y = 0; y < gridHeight; y++)
-            grid[x][y] = elements[0];
+            grid[x][y] = substances[0];
 }
 
 //----------------------------------------------------------------------------------
@@ -185,7 +185,7 @@ void Inputs()
     int mouseX = GetMouseX() / cellSize;
     int mouseY = GetMouseY() / cellSize;
 
-    for (int i = 0; i < numElements - 1; i++)
+    for (int i = 0; i < numSubstances - 1; i++)
         if (IsKeyPressed(KEY_ONE + i))
             selectedId = i + 1;
 
@@ -200,18 +200,18 @@ void Inputs()
         if (movement < 0) {
             selectedId -= 1;
             if (selectedId < 0) {
-                selectedId = numElements - 1;
+                selectedId = numSubstances - 1;
             }
         } else if (movement > 0) {
             selectedId += 1;
         }
 
-        selectedId %= numElements;
+        selectedId %= numSubstances;
         if (selectedId == 0) {
             if (movement > 0) {
                 selectedId = 1;
             } else {
-                selectedId = numElements - 1;
+                selectedId = numSubstances - 1;
             }
         }
     }
@@ -219,9 +219,9 @@ void Inputs()
     // Spawning Cells
     //---------------------------------------------------------
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-        SetElement(mouseX, mouseY, size, elements[selectedId]);
+        SetElement(mouseX, mouseY, size, substances[selectedId]);
     else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
-        SetElement(mouseX, mouseY, size, elements[0]);
+        SetElement(mouseX, mouseY, size, substances[0]);
     
     // Reset Grid
     //---------------------------------------------------------
@@ -237,11 +237,11 @@ void UpdateGridUpward()
     if (left)
         for (int y = gridHeight - 1; y >= 0 ; y--)
             for (int x = 0; x < gridWidth; x++)
-                UpdateElement(x, y, true);
+                UpdateSubstance(x, y, true);
     else
         for (int y = gridHeight - 1; y >= 0 ; y--)
             for (int x = gridWidth - 1; x >= 0; x--)
-                UpdateElement(x, y, true);
+                UpdateSubstance(x, y, true);
 }
 
 void UpdateGridDownward()
@@ -249,17 +249,17 @@ void UpdateGridDownward()
     if (left)
         for (int y = 0; y < gridHeight; y++)
             for (int x = 0; x < gridWidth; x++)
-                UpdateElement(x, y, false);
+                UpdateSubstance(x, y, false);
     else
         for (int y = 0; y < gridHeight; y++)
             for (int x = gridWidth - 1; x >= 0; x--)
-                UpdateElement(x, y, false);
+                UpdateSubstance(x, y, false);
 }
 
 //----------------------------------------------------------------------------------
 // Spawn cells
 //----------------------------------------------------------------------------------
-void SetElement(int x, int y, int size, Element type)
+void SetElement(int x, int y, int size, Substance type)
 {
     // Set cells in a (2*size)x(2*size) square
     for (int cx = -size; cx <= size; cx++)
@@ -268,7 +268,7 @@ void SetElement(int x, int y, int size, Element type)
                 grid[x + cx][y + cy] = type;
 }
 
-void UpdateElement(int x, int y, bool up)
+void UpdateSubstance(int x, int y, bool up)
 {
     if (up && grid[x][y].density < 0)
         return;
@@ -283,9 +283,9 @@ void UpdateElement(int x, int y, bool up)
         for (int i = 0; i < grid[x][y].numReactions; i++)
         {
             int* reaction = grid[x][y].reactions[i];
-            Element with = elements[reaction[0]];
-            Element into1 = elements[reaction[1]];
-            Element into2 = elements[reaction[2]];
+            Substance with = substances[reaction[0]];
+            Substance into1 = substances[reaction[1]];
+            Substance into2 = substances[reaction[2]];
 
             if (React(x, y, with, into1, into2))
             {
@@ -347,7 +347,7 @@ bool SpreadUp(int x, int y, int randomDirection, int spread)
 //----------------------------------------------------------------------------------
 // React
 //----------------------------------------------------------------------------------
-bool React(int x, int y, Element with, Element into1, Element into2)
+bool React(int x, int y, Substance with, Substance into1, Substance into2)
 {
     if (InBounds(x, y + 1) && grid[x][y + 1].id == with.id)
     {
@@ -449,11 +449,11 @@ void Draw()
         DrawText(
             elementNames[selectedId],
             screenWidth - selectedTextWidth - screenMargin,
-            screenMargin, fontSize, elements[selectedId].color
+            screenMargin, fontSize, substances[selectedId].color
         );
 
         if (hoveredTextWidth != 0) {
-            Color hoveredColor = (hoveredId == 0) ? BLACK : elements[hoveredId].color;
+            Color hoveredColor = (hoveredId == 0) ? BLACK : substances[hoveredId].color;
             DrawText(
                 elementNames[hoveredId],
                 screenWidth - hoveredTextWidth - screenMargin,
