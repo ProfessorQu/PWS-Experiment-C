@@ -24,6 +24,9 @@ typedef struct {
 Substance substances[numSubstances] = {
     { 0,  WHITE,     0,    0  },                                 // Air
     { 1,  BLUE,      997,  10 },                                 // H2O (l)
+    //                              with
+    //                              |   into
+    //                              |  |  |
     { 2,  BEIGE,     2160, 0,  1, {{1, 9, 8}} },                 // NaCl (s)
     { 3,  DARKGRAY,  -1,   30 },                                 // CO2 (g)
     { 4,  ORANGE,    -4,   30, 1, {{1, 8, 3}}},                  // CH4 (g)
@@ -40,7 +43,7 @@ Substance substances[numSubstances] = {
     { 15, VIOLET,    900,  10 },                                 // NH4OH (aq)
 };
 
-char* elementNames[numSubstances] = {
+char* substanceNames[numSubstances] = {
     "Air (g)",
     "H2O (l)",
     "NaCl (s)",
@@ -95,7 +98,7 @@ bool SpreadUp(int x, int y, int randomDirection, int spread);
 
 bool React(int x, int y, Substance with, Substance into1, Substance into2);
 
-void SetElement(int x, int y, int size, Substance type);
+void SetSubstance(int x, int y, int size, Substance type);
 
 //----------------------------------------------------------------------------------
 // Local Variables Definition (local to this module)
@@ -219,9 +222,9 @@ void Inputs()
     // Spawning Cells
     //---------------------------------------------------------
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-        SetElement(mouseX, mouseY, size, substances[selectedId]);
+        SetSubstance(mouseX, mouseY, size, substances[selectedId]);
     else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
-        SetElement(mouseX, mouseY, size, substances[0]);
+        SetSubstance(mouseX, mouseY, size, substances[0]);
     
     // Reset Grid
     //---------------------------------------------------------
@@ -259,7 +262,7 @@ void UpdateGridDownward()
 //----------------------------------------------------------------------------------
 // Spawn cells
 //----------------------------------------------------------------------------------
-void SetElement(int x, int y, int size, Substance type)
+void SetSubstance(int x, int y, int size, Substance type)
 {
     // Set cells in a (2*size)x(2*size) square
     for (int cx = -size; cx <= size; cx++)
@@ -432,10 +435,10 @@ void Draw()
         int hoveredTextWidth = 0;
         if (InBounds(mouseX, mouseY)) {
             hoveredId = grid[mouseX][mouseY].id;
-            hoveredTextWidth = MeasureText(elementNames[hoveredId], fontSize);
+            hoveredTextWidth = MeasureText(substanceNames[hoveredId], fontSize);
         }
         
-        int selectedTextWidth = MeasureText(elementNames[selectedId], fontSize);
+        int selectedTextWidth = MeasureText(substanceNames[selectedId], fontSize);
 
         int rectTextWidth = MAX(hoveredTextWidth, selectedTextWidth);
 
@@ -447,7 +450,7 @@ void Draw()
             rectColor
         );
         DrawText(
-            elementNames[selectedId],
+            substanceNames[selectedId],
             screenWidth - selectedTextWidth - screenMargin,
             screenMargin, fontSize, substances[selectedId].color
         );
@@ -455,7 +458,7 @@ void Draw()
         if (hoveredTextWidth != 0) {
             Color hoveredColor = (hoveredId == 0) ? BLACK : substances[hoveredId].color;
             DrawText(
-                elementNames[hoveredId],
+                substanceNames[hoveredId],
                 screenWidth - hoveredTextWidth - screenMargin,
                 screenMargin + fontSize, fontSize,
                 hoveredColor
