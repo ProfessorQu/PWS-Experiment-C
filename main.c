@@ -439,14 +439,13 @@ void Draw()
         }
         
         int selectedTextWidth = MeasureText(substanceNames[selectedId], fontSize);
-
         int rectTextWidth = MAX(hoveredTextWidth, selectedTextWidth);
 
         Color rectColor = RAYWHITE;
         rectColor.a = 175;
         DrawRectangle(
             screenWidth - rectTextWidth - screenMargin * 2, 0,
-            rectTextWidth + screenMargin * 2, fontSize * 2 + screenMargin * 2,
+            rectTextWidth + screenMargin * 2, fontSize * 3 + screenMargin * 2,
             rectColor
         );
         DrawText(
@@ -462,9 +461,19 @@ void Draw()
                 screenWidth - hoveredTextWidth - screenMargin,
                 screenMargin + fontSize, fontSize,
                 hoveredColor
-                
             );
         }
+
+        char sizeText[10];
+        itoa(size, sizeText, 10);
+        int sizeTextWidth = MeasureText(sizeText, fontSize);
+
+        DrawText(
+            sizeText,
+            screenWidth - sizeTextWidth - screenMargin,
+            screenMargin + fontSize * 2, fontSize,
+            BLACK 
+        );
 
         DrawFPS(screenMargin, screenMargin);
     EndDrawing();
