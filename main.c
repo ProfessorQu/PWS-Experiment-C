@@ -78,10 +78,10 @@ char* substanceNames[numSubstances] = {
 //----------------------------------------------------------------------------------
 void ResetGrid();
 
-static void Update();
-static void Draw();
+void Update();
 
-static void Inputs();
+void Inputs();
+void SetSubstance(int x, int y, int size, Substance type);
 
 void UpdateGridUpward();
 void UpdateGridDownward();
@@ -98,7 +98,9 @@ bool SpreadUp(int x, int y, int randomDirection, int spread);
 
 bool React(int x, int y, Substance with, Substance into1, Substance into2);
 
-void SetSubstance(int x, int y, int size, Substance type);
+void Draw();
+void DrawSubstanceGrid();
+void DrawInfo();
 
 //----------------------------------------------------------------------------------
 // Local Variables Definition (local to this module)
@@ -148,9 +150,7 @@ int main()
     }
 
     // De-Initialization
-    //---------------------------------------------------------
-    CloseWindow();        // Close window and OpenGL context
-    //----------------------------------------------------------
+    CloseWindow();
 
     return 0;
 }
@@ -193,12 +193,14 @@ void Inputs()
             selectedId = i + 1;
 
     int movement = GetMouseWheelMove();
+    // Update brush size
     if (IsKeyDown(KEY_LEFT_SHIFT)) {
         size += movement;
         if (size < 0)
             size = 0;
         else if (size > 20)
             size = 20;
+    // Update selected element
     } else {
         if (movement < 0) {
             selectedId -= 1;
@@ -273,6 +275,7 @@ void SetSubstance(int x, int y, int size, Substance type)
 
 void UpdateSubstance(int x, int y, bool up)
 {
+    // Preconditions
     if (up && grid[x][y].density < 0)
         return;
     else if (!up && grid[x][y].density > 0)
@@ -280,6 +283,8 @@ void UpdateSubstance(int x, int y, bool up)
     else if (grid[x][y].id == 0)
         return;
 
+    // React
+    //---------------------------------------------------------
     if (grid[x][y].numReactions > 0)
     {
         bool reacted = false;
@@ -298,13 +303,24 @@ void UpdateSubstance(int x, int y, bool up)
         }
 
         if (!reacted)
+            // Fall
+            //---------------------------------------------------------
             if (!Fall(x, y))
+                // Spread
+                //---------------------------------------------------------
                 Spread(x, y, grid[x][y].spreadRate);
     }
+    // Fall
+    //---------------------------------------------------------
     else if (!Fall(x, y))
+        // Spread
+        //---------------------------------------------------------
         Spread(x, y, grid[x][y].spreadRate);
 }
 
+//----------------------------------------------------------------------------------
+// Spread
+//----------------------------------------------------------------------------------
 bool Spread(int x, int y, int spread)
 {
     int randomDirection = rand() % 2;
@@ -422,59 +438,78 @@ void Draw()
     BeginDrawing();
         ClearBackground(RAYWHITE);
         
-        // Draw grid
-        for (int x = 0; x < gridWidth; x++)
-            for (int y = 0; y < gridHeight; y++)
-                DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, grid[x][y].color);
-
-        // Get the mouse position
-        int mouseX = GetMouseX() / cellSize;
-        int mouseY = GetMouseY() / cellSize;
-
-        int hoveredId = 0;
-        int hoveredTextWidth = 0;
-        if (InBounds(mouseX, mouseY)) {
-            hoveredId = grid[mouseX][mouseY].id;
-            hoveredTextWidth = MeasureText(substanceNames[hoveredId], fontSize);
-        }
-        
-        int selectedTextWidth = MeasureText(substanceNames[selectedId], fontSize);
-        int rectTextWidth = MAX(hoveredTextWidth, selectedTextWidth);
-
-        Color rectColor = RAYWHITE;
-        rectColor.a = 175;
-        DrawRectangle(
-            screenWidth - rectTextWidth - screenMargin * 2, 0,
-            rectTextWidth + screenMargin * 2, fontSize * 3 + screenMargin * 2,
-            rectColor
-        );
-        DrawText(
-            substanceNames[selectedId],
-            screenWidth - selectedTextWidth - screenMargin,
-            screenMargin, fontSize, substances[selectedId].color
-        );
-
-        if (hoveredTextWidth != 0) {
-            Color hoveredColor = (hoveredId == 0) ? BLACK : substances[hoveredId].color;
-            DrawText(
-                substanceNames[hoveredId],
-                screenWidth - hoveredTextWidth - screenMargin,
-                screenMargin + fontSize, fontSize,
-                hoveredColor
-            );
-        }
-
-        char sizeText[10];
-        itoa(size, sizeText, 10);
-        int sizeTextWidth = MeasureText(sizeText, fontSize);
-
-        DrawText(
-            sizeText,
-            screenWidth - sizeTextWidth - screenMargin,
-            screenMargin + fontSize * 2, fontSize,
-            BLACK 
-        );
-
-        DrawFPS(screenMargin, screenMargin);
+        DrawSubstanceGrid();
+        DrawInfo();
     EndDrawing();
+}
+
+void DrawSubstanceGrid() {
+    for (int x = 0; x < gridWidth; x++)
+        for (int y = 0; y < gridHeight; y++)
+            DrawRectangle(x * cellSize, y * cellSize, cellSize, cellSize, grid[x][y].color);
+}
+
+void DrawInfo() {
+    // Get mouse position
+    int mouseX = GetMouseX() / cellSize;
+    int mouseY = GetMouseY() / cellSize;
+
+    // Display Hovered Over substance
+    //-----------------------------------------------------
+    int hoveredOverId = 0;
+    int hoveredOverTextWidth = 0;
+    if (InBounds(mouseX, mouseY)) {
+        hoveredOverId = grid[mouseX][mouseY].id;
+        hoveredOverTextWidth = MeasureText(substanceNames[hoveredOverId], fontSize);
+    }
+    
+    // Calculate Selected substance text width
+    int selectedTextWidth = MeasureText(substanceNames[selectedId], fontSize);
+
+    // Draw Info Rectangle
+    //-----------------------------------------------------
+    int rectTextWidth = MAX(hoveredOverTextWidth, selectedTextWidth);
+
+    Color rectColor = RAYWHITE;
+    rectColor.a = 175;
+    DrawRectangle(
+        screenWidth - rectTextWidth - screenMargin * 2, 0,
+        rectTextWidth + screenMargin * 2, fontSize * 3 + screenMargin * 2,
+        rectColor
+    );
+
+    // Draw Selected substance name
+    DrawText(
+        substanceNames[selectedId],
+        screenWidth - selectedTextWidth - screenMargin,
+        screenMargin, fontSize, substances[selectedId].color
+    );
+
+    // Draw Hovered Over substance name
+    if (hoveredOverTextWidth != 0) {
+        // Make Air (g) colors' black
+        Color hoveredColor = (hoveredOverId == 0) ? BLACK : substances[hoveredOverId].color;
+        DrawText(
+            substanceNames[hoveredOverId],
+            screenWidth - hoveredOverTextWidth - screenMargin,
+            screenMargin + fontSize, fontSize,
+            hoveredColor
+        );
+    }
+
+    // Show the size of the brush
+    //-----------------------------------------------------
+    char sizeText[10];
+    itoa(size, sizeText, 10);
+    int sizeTextWidth = MeasureText(sizeText, fontSize);
+
+    DrawText(
+        sizeText,
+        screenWidth - sizeTextWidth - screenMargin,
+        screenMargin + fontSize * 2, fontSize,
+        BLACK 
+    );
+
+    // Draw FPS
+    DrawFPS(screenMargin, screenMargin);
 }
