@@ -2,11 +2,12 @@
 
 ## Controls
 
--  Mouse Scroll &rarr; change element
--  Shift + Mouse Scroll &rarr; change brush size
--  Left Mouse Click &rarr; place element
--  Right Mouse Click &rarr; remove element
--  Middle Mouse Click &rarr; reset entire grid
+- Mouse Scroll &rarr; change element
+- Shift + Mouse Scroll &rarr; change brush size
+- Left Mouse Click &rarr; place element
+- Right Mouse Click &rarr; remove element
+- Middle Mouse Click &rarr; reset entire grid
+- Number Keys &rarr; select element with that id
 
 ## Reacties
 
