@@ -1,5 +1,7 @@
 # PWS-Experiment-C
 
+To run, download main.exe and run it.
+
 ## Controls
 
 - Mouse Scroll &rarr; change element
